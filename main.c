@@ -12,8 +12,34 @@
 
 void print128_num(__m128i var)
  {
- int64_t *v64val = (int64_t*) &var;
- printf("%.16lli %.16lli\n", v64val[1], v64val[0]);
+ unsigned long long int *v64val = (int64_t*) &var;
+ const unsigned long long int upper=0x8000000000000000;
+ printf("%.16lli %.16lli\n or \n", v64val[1], v64val[0]);
+ int j=0;
+ while(v64val[1]>0)
+  {
+  if(v64val[1]&upper)
+   {
+   printf("x^%i",127-j);
+   if(v64val[0]>0||(v64val[1]<<1)>0)
+    printf("+");
+   }
+  v64val[1]<<=1;
+  ++j;
+  }
+ j=0;
+ while(v64val[0]>0)
+  {
+  if(v64val[0]&upper)
+   {
+   printf("x^%i",63-j);
+   if((v64val[0]<<1)>0)
+    printf("+");
+   }
+  v64val[0]<<=1;
+  ++j;
+  }
+ printf("\n");
  }
 
 unsigned int deg(const __m128i a)
@@ -39,23 +65,23 @@ unsigned int deg(const __m128i a)
 __m128i first_mul_mod(__m128i a, __m128i b)
  {
  unsigned long long *a1=&a,*b1=&b,olda11;
- long long c1[2]={0,0};
+ unsigned long long c1[2]={0,0},upper=0x8000000000000000;
  unsigned k=0;
  while(!(b1[0]==0&&b1[1]==0))
   {
   if(b1[0]&1)
    {
-   c1[0]^=a[0];
-   c1[1]^=a[1];
+   c1[0]^=a1[0];
+   c1[1]^=a1[1];
    }
 //a=((a<<1)+_mm_set_epi64x(a1[0]&0x8000000000000000,0))^(a1[1]&0x8000000000000000?{0x87,0}:{0,0});
   olda11=a1[1];
-  a1[1]=((a1[1]<<1)+(a1[0]&0x8000000000000000));
-  a1[0]=(a1[0]<<1)^(olda11 & 0x8000000000000000 ? 0x87 : 0);
+  a1[1]=(a1[1]<<1)+((a1[0]&upper)>>63);
+  a1[0]=(a1[0]<<1)^((olda11 & upper) ? 0x87 : 0);
 
 //b=(b>>1)+_mm_set_epi64x(0,(b1[1]&1)<<63);
-  b[0]=(b[0]>>1)+b1[1]&1;
-  b[1]>>=1;
+  b1[0]=(b1[0]>>1)+((b1[1]&1)<<63);
+  b1[1]>>=1;
 
   ++k;
   }
@@ -97,11 +123,10 @@ __m128i second_mul_mod(const __m128i a, const __m128i b)
 
  __m128i c_mul_qz_1=tmp_var1+_mm_clmulepi64_si128(c,qz_up,0)+tmp_var2;
 
- __m128i tmp_var3=_mm_slli_si128(_mm_clmulepi64_si128(c,qz_low,1),8);
+// __m128i tmp_var3=_mm_slli_si128(_mm_clmulepi64_si128(c,qz_low,1),8);
                    //{0,buf2[0]};
- long long *tv3_buf=&tmp_var3;
- __m128i c_mul_qz_0=_mm_set_epi64x(tv3_buf[0],0)+_mm_clmulepi64_si128(c,qz_low,0);
-
+// __m128i c_mul_qz_0=_mm_slli_si128(tmp_var3,8)+_mm_clmulepi64_si128(c,qz_low,0);
+/*
 //ПРИВЕТ, КОСТЫЛЬ
  unsigned long long int* buf1=&c_mul_qz_1;
  unsigned long long int* buf0=&c_mul_qz_0;
@@ -131,9 +156,9 @@ __m128i second_mul_mod(const __m128i a, const __m128i b)
     buf[0]=buf0[0];
     buf[1]=buf0[1];
     }
-//ПОКА
+//ПОКА*/
 
- __m128i Mt={buf[0],buf[1]};
+ __m128i Mt=c_mul_qz_1;
 
 //т.к. gz==qz_low, дальше не будем вводить новую переменную, а
 //будем использовать qz_low
@@ -154,13 +179,30 @@ int main()
   {
   clock_t t1,t2;
   double dur;
-  long long int buf1[2],buf2[2];
+  long long int buf1[2]={0,0},buf2[2]={0,0};
+  int in;
 
-  printf("Input your polynoms: ");
-  scanf("%lli %lli",&(buf1[1]),buf1);
+  printf("Input your polynoms (just specify powers by ws): ");
+  while(scanf("%i",&in))
+   {
+   if(in>=0&&in<64)
+    buf1[0]+=pow(2,in);
+   if(in>=64&&in<128)
+    buf1[1]+=pow(2,in-64);
+   if(getc(stdin)=='\n')
+    break;
+   }
   printf("a=(%lli,%lli)\nanother one: ",buf1[1],buf1[0]);
-  scanf("%lli %lli",&(buf2[1]),buf2);
-  printf("b=(%i,%lli)\n\n\tFIRST\n",buf2[1],buf2[0]);
+  while(scanf("%i",&in))
+   {
+   if(in>=0&&in<64)
+    buf2[0]+=pow(2,in);
+   if(in>=64&&in<128)
+    buf2[1]+=pow(2,in-64);
+   if(getc(stdin)=='\n')
+    break;
+   }
+  printf("b=(%lli,%lli)\n\n\tFIRST\n",buf2[1],buf2[0]);
 
           //big-endian!
   __m128i a={buf1[0],buf1[1]},b={buf2[0],buf2[1]},c;

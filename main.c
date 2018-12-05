@@ -1,13 +1,15 @@
 #include <stdio.h>
 #include <time.h>
 #include <wmmintrin.h>
+#include <sys/time.h>
+#include <time.h>
+#define NS_IN_S  1E9
+
 
 // sizeof(unsigned long long)==8
 // GF(2^128):
 // primitive(irreducable) polynomial is
 // g(x)=x^128+x^7+x^2+x+1
-
-//typedef unsigned long long int ull;
 
 
 void print128_num(__m128i var)
@@ -42,24 +44,24 @@ void print128_num(__m128i var)
  printf("\n");
  }
 
-unsigned int deg(const __m128i a)
+double time_delta_in_sec(struct timespec start,struct timespec stop)
  {
- unsigned int j=0;
- __m128i b=a;
- unsigned long long int* b1=&b;
- while(b1[1])
+ struct timespec duration;
+ //Вычисления длительности в виде timespec
+ if ((stop.tv_nsec - start.tv_nsec) < 0)
   {
-  b1[1]>>=1;
-  ++j;
+  duration.tv_sec = stop.tv_sec - start.tv_sec - 1;
+  duration.tv_nsec = NS_IN_S + stop.tv_nsec - start.tv_nsec;
   }
- if(j>0)
-  return 64+j;
- while(b1[0])
+ else
   {
-  b1[0]>>=1;
-  ++j;
+  duration.tv_sec = stop.tv_sec - start.tv_sec;
+  duration.tv_nsec = stop.tv_nsec - start.tv_nsec;
   }
- return j;
+
+ //Результат в секундах
+ double result = duration.tv_sec + duration.tv_nsec / NS_IN_S;
+ return result;
  }
 
 __m128i first_mul_mod(__m128i a, __m128i b)
@@ -177,7 +179,7 @@ int main()
  {
  for(;;)
   {
-  clock_t t1,t2;
+  struct timespec start, stop;
   double dur;
   long long int buf1[2]={0,0},buf2[2]={0,0};
   int in;
@@ -206,19 +208,17 @@ int main()
 
           //big-endian!
   __m128i a={buf1[0],buf1[1]},b={buf2[0],buf2[1]},c;
-  t1=clock();
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
   c=first_mul_mod(a,b);
-  t2=clock();
-  dur=1000.0*(t2-t1)/CLOCKS_PER_SEC;
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &stop);
   print128_num(c);
-  printf("CPU time used : %.2f ms\n\n\tSECOND\n", dur);
+  printf("CPU time used : %f s\n\n\tSECOND\n", time_delta_in_sec(start,stop));
 
-  t1=clock();
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
   c=second_mul_mod(a,b);
-  t2=clock();
-  dur=1000.0*(t2-t1)/CLOCKS_PER_SEC;
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &stop);
   print128_num(c);
-  printf("CPU time used : %.2f ms\n\n", dur);
+  printf("CPU time used : %f s\n\n\tSECOND\n", time_delta_in_sec(start,stop));
   }
  return 0;
  }

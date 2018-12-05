@@ -44,7 +44,7 @@ void print128_num(__m128i var)
  printf("\n");
  }
 
-double time_delta_in_sec(struct timespec start,struct timespec stop)
+struct timespec time_delta(struct timespec start,struct timespec stop)
  {
  struct timespec duration;
  //Вычисления длительности в виде timespec
@@ -59,9 +59,7 @@ double time_delta_in_sec(struct timespec start,struct timespec stop)
   duration.tv_nsec = stop.tv_nsec - start.tv_nsec;
   }
 
- //Результат в секундах
- double result = duration.tv_sec + duration.tv_nsec / NS_IN_S;
- return result;
+ return duration;
  }
 
 __m128i first_mul_mod(__m128i a, __m128i b)
@@ -179,7 +177,7 @@ int main()
  {
  for(;;)
   {
-  struct timespec start, stop;
+  struct timespec start, stop, duration;
   double dur;
   long long int buf1[2]={0,0},buf2[2]={0,0};
   int in;
@@ -212,13 +210,15 @@ int main()
   c=first_mul_mod(a,b);
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &stop);
   print128_num(c);
-  printf("CPU time used : %f s\n\n\tSECOND\n", time_delta_in_sec(start,stop));
+  duration=time_delta(start,stop);
+  printf("CPU time used : %is,%lins\n\n\tSECOND\n",duration.tv_sec,duration.tv_nsec);
 
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
   c=second_mul_mod(a,b);
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &stop);
   print128_num(c);
-  printf("CPU time used : %f s\n\n\tSECOND\n", time_delta_in_sec(start,stop));
+  duration=time_delta(start,stop);
+  printf("CPU time used : %is,%lins\n\n",duration.tv_sec,duration.tv_nsec);
   }
  return 0;
  }
